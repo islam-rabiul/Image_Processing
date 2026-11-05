@@ -1,3 +1,4 @@
+from filters import apply_blur_filters, apply_sharpening_kernel, test_on_noisy_image
 from image_loader import (
     inspect_pixel_matrix,
     create_black_image,
@@ -52,6 +53,9 @@ def main():
         split_and_merge_channels(bgr_img1)
         adjust_brightness_contrast(bgr_img1, alpha=1.2, beta=35)
         generate_grayscale_histogram(gray_img)
+        apply_blur_filters(bgr_img1)
+        apply_sharpening_kernel(bgr_img1)
+        test_on_noisy_image()
     else:
         print("Skipping geometric transforms because image loading failed.")
 
