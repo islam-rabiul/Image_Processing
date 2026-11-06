@@ -211,7 +211,134 @@ def generate_grayscale_histogram(gray_image, output_dir="output/filtered/"):
     plt.close()
 
     print(f"Histogram successfully plotted and saved to: {hist_path}")
+#Day 7
+def apply_thresholding_methods(image_bgr, output_dir="output/masks/"):
+    print("\n=== Day 7: Binary, Adaptive, and Otsu Thresholding ===")
+    os.makedirs(output_dir, exist_ok=True)
 
+    # Convert to grayscale first (thresholding operates on single-channel images)
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    # 1. Global Binary Thresholding (Cutoff at 127)
+    _, thresh_binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+    cv2.imwrite(os.path.join(output_dir, "thresh_binary.jpg"), thresh_binary)
+
+    # 2. Global Inverse Binary Thresholding
+    _, thresh_inv = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+    cv2.imwrite(os.path.join(output_dir, "thresh_inv.jpg"), thresh_inv)
+
+    # 3. Adaptive Gaussian Thresholding (Handles uneven lighting)
+    # Parameters: src, maxValue, adaptiveMethod, thresholdType, blockSize, C constant
+    thresh_adaptive = cv2.adaptiveThreshold(
+        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY, 11, 2
+    )
+    cv2.imwrite(os.path.join(output_dir, "thresh_adaptive.jpg"), thresh_adaptive)
+
+    # 4. Otsu's Automated Thresholding (Calculates optimal threshold automatically)
+    _, thresh_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    cv2.imwrite(os.path.join(output_dir, "thresh_otsu.jpg"), thresh_otsu)
+
+    print("Successfully saved threshold masks to output/masks/")
+    return thresh_otsu
+
+def apply_morphological_operations(binary_mask, output_dir="output/masks/"):
+    print("\n=== Day 7: Morphological Operations (Erosion, Dilation, Opening, Closing) ===")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Define a structuring element (kernel), e.g., a 3x3 rectangular matrix
+    kernel = np.ones((3, 3), dtype=np.uint8)
+
+    # 1. Erosion (Shrinks white regions, removes tiny speckle noise)
+    eroded = cv2.erode(binary_mask, kernel, iterations=1)
+    cv2.imwrite(os.path.join(output_dir, "morph_eroded.jpg"), eroded)
+
+    # 2. Dilation (Expands white regions, fills small internal holes)
+    dilated = cv2.dilate(binary_mask, kernel, iterations=1)
+    cv2.imwrite(os.path.join(output_dir, "morph_dilated.jpg"), dilated)
+
+    # 3. Opening (Erosion followed by Dilation -> removes external noise)
+    opening = cv2.morphologyEx(binary_mask, cv2.MORPH_OPEN, kernel)
+    cv2.imwrite(os.path.join(output_dir, "morph_opening.jpg"), opening)
+
+    # 4. Closing (Dilation followed by Erosion -> closes internal gaps)
+    closing = cv2.morphologyEx(binary_mask, cv2.MORPH_CLOSE, kernel)
+    cv2.imwrite(os.path.join(output_dir, "morph_closing.jpg"), closing)
+
+    print("Successfully saved morphological operation results to output/masks/")
+#Day 8
+def detect_edges_canny(image_bgr, output_dir="output/edges/"):
+    print("\n=== Day 8: Gradient Operators & Canny Edge Detection ===")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 1. Convert to grayscale
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+
+    # 2. Apply Gaussian Blur first to reduce noise (prevents false edges)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 1.5)
+
+    # 3. Sobel Operators (Horizontal and Vertical Gradients)
+    sobel_x = cv2.Sobel(blurred, cv2.CV_64F, 1, 0, ksize=3)  # X direction
+    sobel_y = cv2.Sobel(blurred, cv2.CV_64F, 0, 1, ksize=3)  # Y direction
+
+    # Convert back to uint8 absolute values
+    sobel_x_uint8 = cv2.convertScaleAbs(sobel_x)
+    sobel_y_uint8 = cv2.convertScaleAbs(sobel_y)
+
+    cv2.imwrite(os.path.join(output_dir, "edge_sobel_x.jpg"), sobel_x_uint8)
+    cv2.imwrite(os.path.join(output_dir, "edge_sobel_y.jpg"), sobel_y_uint8)
+
+    # 4. Canny Edge Detection (Golden Standard)
+    # Parameters: image, threshold1 (minVal), threshold2 (maxVal)
+    canny_edges = cv2.Canny(blurred, threshold1=100, threshold2=200)
+    cv2.imwrite(os.path.join(output_dir, "edge_canny.jpg"), canny_edges)
+
+    print("Successfully saved edge detection maps to output/edges/")
+    return canny_edges
+
+
+def find_and_analyze_contours(image_bgr, edge_mask, output_dir="output/edges/"):
+    print("\n=== Day 8: Finding Contours, Areas, Perimeters & Bounding Boxes ===")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Make a copy of the original image to draw bounding boxes onto
+    contour_display_img = image_bgr.copy()
+
+    # Find contours from the edge mask
+    # cv2.RETR_EXTERNAL retrieves only outer contours; CHAIN_APPROX_SIMPLE compresses horizontal/vertical segments
+    contours, _ = cv2.findContours(edge_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    print(f"Total raw contours found: {len(contours)}")
+
+    valid_contours_count = 0
+
+    for idx, cnt in enumerate(contours):
+        # Calculate area and perimeter
+        area = cv2.contourArea(cnt)
+
+        # Filter out tiny noise contours by setting a minimum area threshold (e.g., > 500 pixels)
+        if area > 500:
+            valid_contours_count += 1
+            perimeter = cv2.arcLength(cnt, closed=True)
+
+            # Get bounding rectangle coordinates (x, y, width, height)
+            x, y, w, h = cv2.boundingRect(cnt)
+
+            # Draw the contour outline in green
+            cv2.drawContours(contour_display_img, [cnt], -1, (0, 255, 0), 2)
+
+            # Draw the bounding rectangle in blue
+            cv2.rectangle(contour_display_img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+
+            # Put text label for area inspection
+            label = f"ID:{valid_contours_count} A:{int(area)}"
+            cv2.putText(contour_display_img, label, (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
+    # Save the final annotated contour image
+    output_path = os.path.join(output_dir, "annotated_contours.jpg")
+    cv2.imwrite(output_path, contour_display_img)
+
+    print(f"Filtered down to {valid_contours_count} significant object contours.")
+    print(f"Successfully saved annotated contours image to: {output_path}")
 
 if __name__ == "__main__":
     perform_matrix_operations()

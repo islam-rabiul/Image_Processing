@@ -7,7 +7,10 @@ from image_loader import (
     load_and_inspect_image,
     save_image_to_output
 )
-from transformations import perform_matrix_operations, calculate_image_statistics, explore_shapes_and_layouts,resize_and_interpolate,flip_and_rotate_image,translate_image,convert_color_spaces,split_and_merge_channels,adjust_brightness_contrast,generate_grayscale_histogram
+from transformations import perform_matrix_operations, calculate_image_statistics, explore_shapes_and_layouts, \
+    resize_and_interpolate, flip_and_rotate_image, translate_image, convert_color_spaces, split_and_merge_channels, \
+    adjust_brightness_contrast, generate_grayscale_histogram, apply_thresholding_methods, \
+    apply_morphological_operations, detect_edges_canny, find_and_analyze_contours
 
 
 def main():
@@ -56,6 +59,12 @@ def main():
         apply_blur_filters(bgr_img1)
         apply_sharpening_kernel(bgr_img1)
         test_on_noisy_image()
+    #     Day 7
+        binary_mask = apply_thresholding_methods(bgr_img1)
+        apply_morphological_operations(binary_mask)
+        # 2. Run Day 8
+        canny_mask = detect_edges_canny(bgr_img1)
+        find_and_analyze_contours(bgr_img1, canny_mask)
     else:
         print("Skipping geometric transforms because image loading failed.")
 
