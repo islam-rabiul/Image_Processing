@@ -10,7 +10,8 @@ from image_loader import (
 from transformations import perform_matrix_operations, calculate_image_statistics, explore_shapes_and_layouts, \
     resize_and_interpolate, flip_and_rotate_image, translate_image, convert_color_spaces, split_and_merge_channels, \
     adjust_brightness_contrast, generate_grayscale_histogram, apply_thresholding_methods, \
-    apply_morphological_operations, detect_edges_canny, find_and_analyze_contours, run_batch_processing
+    apply_morphological_operations, detect_edges_canny, find_and_analyze_contours, run_batch_processing, \
+    run_complete_mini_project_pipeline
 
 
 def main():
@@ -67,6 +68,13 @@ def main():
         find_and_analyze_contours(bgr_img1, canny_mask)
         #Day 9
         run_batch_processing(input_dir="input_images/", base_output_dir="output/")
+        #Day 10
+        run_complete_mini_project_pipeline(
+            input_dir="input_images/",
+            base_output_dir="output/",
+            report_path="reports/processing_report.csv"
+        )
+
 
     else:
         print("Skipping geometric transforms because image loading failed.")

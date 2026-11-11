@@ -1,0 +1,4 @@
+Filename,Original_Width,Original_Height,Mean_Brightness,Contours_Detected,Status
+sample1.jpg,100,100,127.89,0,SUCCESS
+astro.jpg,800,525,88.57,8,SUCCESS
+sample.jpg,100,100,29.0,0,SUCCESS

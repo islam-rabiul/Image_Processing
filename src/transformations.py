@@ -1,3 +1,4 @@
+import csv
 import glob
 
 import numpy as np
@@ -412,19 +413,93 @@ def run_batch_processing(input_dir="input_images/", base_output_dir="output/"):
 
     print(f"Batch processing complete! Successfully processed {processed_count} images.")
 
-if __name__ == "__main__":
-    perform_matrix_operations()
-    calculate_image_statistics()
-    explore_shapes_and_layouts()
-    sample_path = "input_images/astro.jpg"
-    bgr_img=cv2.imread(sample_path, cv2.IMREAD_COLOR)
-    if bgr_img is not None:
-        # 2. Run Day 5 Colour & Channel Operations
-        gray_img, hsv_img = convert_color_spaces(bgr_img)
-        split_and_merge_channels(bgr_img)
-        adjust_brightness_contrast(bgr_img, alpha=1.2, beta=35)
-        generate_grayscale_histogram(gray_img)
-    else:
-        print("Skipping color tasks because image loading failed.")
+#Day 10
+def run_complete_mini_project_pipeline(input_dir="input_images/", base_output_dir="output/",
+                                       report_path="reports/processing_report.csv"):
+    print("\n=== Day 10: Running Complete End-to-End Preprocessing Mini-Project ===")
 
-    print("\nDay 5 colour space and channel tasks completed successfully!")
+    # 1. Ensure all manager-specified output folders and report directories exist
+    os.makedirs(os.path.join(base_output_dir, "resized"), exist_ok=True)
+    os.makedirs(os.path.join(base_output_dir, "grayscale"), exist_ok=True)
+    os.makedirs(os.path.join(base_output_dir, "filtered"), exist_ok=True)
+    os.makedirs(os.path.join(base_output_dir, "edges"), exist_ok=True)
+    os.makedirs(os.path.join(base_output_dir, "masks"), exist_ok=True)
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+
+    # 2. Gather all target images using glob
+    image_extensions = ("*.jpg", "*.jpeg", "*.png")
+    image_paths = []
+    for ext in image_extensions:
+        image_paths.extend(glob.glob(os.path.join(input_dir, ext)))
+
+    if not image_paths:
+        print(f"Error: No images found in '{input_dir}' directory to process.")
+        return
+
+    print(f"Found {len(image_paths)} images. Starting automated batch processing & telemetry logging...")
+
+    # 3. Open CSV file to write the processing telemetry report
+    report_file = open(report_path, mode="w", newline="", encoding="utf-8")
+    csv_writer = csv.writer(report_file)
+
+    # Write CSV Header matching enterprise reporting standards
+    csv_writer.writerow(
+        ["Filename", "Original_Width", "Original_Height", "Mean_Brightness", "Contours_Detected", "Status"])
+
+    success_count = 0
+
+    for img_path in image_paths:
+        filename = os.path.basename(img_path)
+        print(f"\n[Processing] -> {filename}")
+
+        # Input Validation / Safety Check
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"  [Error] Failed to read {filename}. Skipping file.")
+            csv_writer.writerow([filename, 0, 0, 0.0, 0, "FAILED_READ"])
+            continue
+
+        h, w = img.shape[:2]
+
+        try:
+            # Step A: Grayscale Conversion & Saving
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            cv2.imwrite(os.path.join(base_output_dir, "grayscale", f"gray_{filename}"), gray)
+
+            # Step B: Calculate Mean Brightness Telemetry
+            mean_brightness = float(np.mean(gray))
+
+            # Step C: Resize (e.g., scale down by 50% while preserving aspect ratio)
+            resized = cv2.resize(img, (w // 2, h // 2), interpolation=cv2.INTER_LINEAR)
+            cv2.imwrite(os.path.join(base_output_dir, "resized", f"resized_{filename}"), resized)
+
+            # Step D: Filtering & Denoising (Gaussian Blur)
+            blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+            cv2.imwrite(os.path.join(base_output_dir, "filtered", f"blur_{filename}"), blurred)
+
+            # Step E: Edge Detection (Canny) & Contour Analysis
+            edges = cv2.Canny(blurred, 100, 200)
+            cv2.imwrite(os.path.join(base_output_dir, "edges", f"canny_{filename}"), edges)
+
+            contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            significant_contours = sum(1 for c in contours if cv2.contourArea(c) > 100)
+
+            # Step F: Thresholding & Binary Mask Generation
+            _, mask = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            cv2.imwrite(os.path.join(base_output_dir, "masks", f"mask_{filename}"), mask)
+
+            # Log successful processing row into CSV
+            csv_writer.writerow([filename, w, h, round(mean_brightness, 2), significant_contours, "SUCCESS"])
+            success_count += 1
+            print(f"  [Complete] W: {w}, H: {h} | Brightness: {mean_brightness:.1f} | Contours: {significant_contours}")
+
+        except Exception as e:
+            print(f"  [Error] Exception occurred during processing {filename}: {e}")
+            csv_writer.writerow([filename, w, h, 0.0, 0, f"ERROR: {str(e)}"])
+
+    # Close report file securely
+    report_file.close()
+    print(f"\n=== Mini-Project Pipeline Complete! ===")
+    print(f"Successfully processed {success_count}/{len(image_paths)} images.")
+    print(f"Telemetry report generated and saved to: {report_path}")
+
