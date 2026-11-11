@@ -1,3 +1,5 @@
+import glob
+
 import numpy as np
 import os
 import cv2
@@ -339,6 +341,76 @@ def find_and_analyze_contours(image_bgr, edge_mask, output_dir="output/edges/"):
 
     print(f"Filtered down to {valid_contours_count} significant object contours.")
     print(f"Successfully saved annotated contours image to: {output_path}")
+
+
+def segment_by_color_hsv(image_bgr, lower_bound, upper_bound):
+    """
+    Creates a binary mask isolating a specific color range in HSV space.
+    """
+    # 1. Convert BGR to HSV color space
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+
+    # 2. Create a mask using the specified color range
+    mask = cv2.inRange(hsv, lower_bound, upper_bound)
+
+    # 3. Clean up noise using morphological opening/closing
+    kernel = np.ones((5, 5), dtype=np.uint8)
+    cleaned_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    cleaned_mask = cv2.morphologyEx(cleaned_mask, cv2.MORPH_CLOSE, kernel)
+
+    # 4. Bitwise-AND to extract the segmented region from the original image
+    segmented_result = cv2.bitwise_and(image_bgr, image_bgr, mask=cleaned_mask)
+
+    return cleaned_mask, segmented_result
+
+##Day 9
+def run_batch_processing(input_dir="input_images/", base_output_dir="output/"):
+    print(f"\n=== Day 9: Running Automated Batch Processing on folder: '{input_dir}' ===")
+
+    # Define sub-output folders based on your project structure
+    mask_out_dir = os.path.join(base_output_dir, "masks")
+    filtered_out_dir = os.path.join(base_output_dir, "filtered")
+    os.makedirs(mask_out_dir, exist_ok=True)
+    os.makedirs(filtered_out_dir, exist_ok=True)
+
+    # Find all common image formats (.jpg, .jpeg, .png) in the input directory
+    image_extensions = ("*.jpg", "*.jpeg", "*.png")
+    image_paths = []
+    for ext in image_extensions:
+        image_paths.extend(glob.glob(os.path.join(input_dir, ext)))
+
+    if not image_paths:
+        print(f"Warning: No images found in '{input_dir}' directory!")
+        return
+
+    print(f"Found {len(image_paths)} images to process.")
+
+    # Example HSV bounds for filtering (e.g., targeting a specific color range like bluish/greenish tones)
+    # You can tweak these lower and upper bounds depending on your test images
+    lower_hsv = np.array([90, 10, 100], dtype=np.uint8)
+    upper_hsv = np.array([130, 255, 255], dtype=np.uint8)
+
+    processed_count = 0
+    for img_path in image_paths:
+        filename = os.path.basename(img_path)
+        print(f"Processing file: {filename}...")
+
+        # Load image safely
+        img = cv2.imread(img_path)
+        if img is None:
+            print(f"  -> Failed to load {filename}, skipping.")
+            continue
+
+        # Apply HSV color segmentation
+        mask, segmented = segment_by_color_hsv(img, lower_hsv, upper_hsv)
+
+        # Save mask and processed results into their designated directories
+        cv2.imwrite(os.path.join(mask_out_dir, f"mask_{filename}"), mask)
+        cv2.imwrite(os.path.join(filtered_out_dir, f"segmented_{filename}"), segmented)
+
+        processed_count += 1
+
+    print(f"Batch processing complete! Successfully processed {processed_count} images.")
 
 if __name__ == "__main__":
     perform_matrix_operations()
